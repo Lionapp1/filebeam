@@ -95,7 +95,7 @@ class ScreenMirrorService : Service() {
                 stopSelf()
             }
         }
-        projection?.registerCallback(projectionCallback!!, android.os.Handler(mainLooper))
+        projectionCallback?.let { callback -> projection?.registerCallback(callback, android.os.Handler(mainLooper)) }
 
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
@@ -177,7 +177,7 @@ class ScreenMirrorService : Service() {
                     }
                     sentFormat = true
                     if (!audioStarted) {
-                        audioStarted = startAudioCapture(projection!!, out)
+                        audioStarted = projection?.let { startAudioCapture(it, out) } ?: false
                         publishStatus(if (audioStarted) "Görüntü ve uygulama sesi aktarılıyor · ${width}×${height}" else "Görüntü aktarılıyor · ${width}×${height} · Ses izni yok veya uygulama sesi engelliyor")
                     }
                 }
@@ -230,7 +230,7 @@ class ScreenMirrorService : Service() {
                 val pcm = ByteArray(maxOf(minBuffer, 8192))
                 while (running && audioRecord === record) {
                     val count = record.read(pcm, 0, pcm.size)
-                    if (count > 0) synchronized(out) { out.writeInt(PACKET_AUDIO); out.writeInt(count); out.write(pcm, 0, count) }
+                    if (count > 0) synchronized(out) { out.writeInt(PACKET_AUDIO); out.writeInt(count); out.write(pcm, 0, count); out.flush() }
                     else if (count < 0) break
                 }
             }
