@@ -1,55 +1,19 @@
-name: Build & Sign APK
+name: Publish release
 
 on:
   push:
-    # Every branch is built for verification, but only main and version tags
-    # may publish a release: a feature branch must never become "latest".
-    branches: [ main, 'feature/**' ]
-    tags: [ 'v*' ]
-  pull_request:
     branches: [ main ]
+    tags: [ 'v*' ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Prevent overlapping builds on the same branch from publishing out of order.
 concurrency:
-  group: filebeam-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: filebeam-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  build-debug:
-    name: Build and verify debug APK
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.9'
-
-      - name: Build debug APK
-        run: |
-          set -euo pipefail
-          gradle assembleDebug --stacktrace
-          test -s app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: FileBeam-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 14
-
   build-release:
     name: Build persistent signed release APK
     runs-on: ubuntu-latest
@@ -61,7 +25,7 @@ jobs:
       SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
       SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check signing secret availability
         id: signing
@@ -76,16 +40,17 @@ jobs:
 
       - name: Set up JDK 17
         if: steps.signing.outputs.available == 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Setup Gradle
         if: steps.signing.outputs.available == 'true'
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+          cache-provider: basic
 
       - name: Prepare and validate persistent keystore
         if: steps.signing.outputs.available == 'true'
@@ -104,9 +69,8 @@ jobs:
 
       - name: Set up Android SDK
         if: steps.signing.outputs.available == 'true'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
-          accept-android-sdk-licenses: true
           packages: platform-tools
 
       - name: Install Android build tools
@@ -127,7 +91,6 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
             VERSION="${VERSION%%-*}"
           else
-            # Every CI build gets a strictly increasing version so Android accepts it as an update.
             VERSION="2.0.${GITHUB_RUN_NUMBER}"
           fi
           IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
@@ -137,15 +100,26 @@ jobs:
           echo "VERSION_NAME=$VERSION" >> "$GITHUB_ENV"
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           echo "Building FileBeam $VERSION (versionCode $VERSION_CODE)"
-          gradle assembleRelease -PVERSION_NAME="$VERSION" -PVERSION_CODE="$VERSION_CODE" --stacktrace
+          gradle assembleRelease -PVERSION_NAME="$VERSION" -PVERSION_CODE="$VERSION_CODE" --stacktrace 2>&1 | tee build.log
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           apksigner verify --verbose --print-certs "$APK"
           sha256sum "$APK" > "$APK.sha256"
 
+      - name: Diagnose build failure
+        if: failure() && steps.signing.outputs.available == 'true'
+        shell: bash
+        run: |
+          if [[ -f build.log ]]; then
+            echo "::group::Gradle failure excerpt"
+            grep -nE '^[ew]: |error:|FAILURE:|Caused by:|> Task .* FAILED' build.log | head -80 || true
+            echo "::endgroup::"
+            grep -nE '^[ew]: |error:|FAILURE:|Caused by:' build.log | head -20 | while IFS= read -r line; do echo "::error::$line"; done
+          fi
+
       - name: Upload signed APK and checksum
         if: steps.signing.outputs.available == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: FileBeam-release-apk
           path: |
@@ -155,7 +129,7 @@ jobs:
           retention-days: 30
 
       - name: Determine whether this build is the newest release
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.signing.outputs.available == 'true'
+        if: steps.signing.outputs.available == 'true'
         id: latest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -176,10 +150,9 @@ jobs:
           echo "Current version code: $current_code; latest published version code: $latest_code"
 
       - name: Publish versioned APK to GitHub Release
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.signing.outputs.available == 'true'
-        uses: softprops/action-gh-release@v2
+        if: steps.signing.outputs.available == 'true'
+        uses: softprops/action-gh-release@v3
         with:
-          # Branch builds publish a new stable semver tag; /releases/latest can then find it.
           tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v2.0.{0}', github.run_number) }}
           target_commitish: ${{ github.sha }}
           name: ${{ startsWith(github.ref, 'refs/tags/v') && format('FileBeam {0}', github.ref_name) || format('FileBeam 2.0.{0}', github.run_number) }}
