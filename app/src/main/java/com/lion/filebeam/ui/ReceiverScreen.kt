@@ -36,6 +36,7 @@ import com.lion.filebeam.Discovery
 import com.lion.filebeam.TransferClient
 import com.lion.filebeam.TransferServer
 import com.lion.filebeam.SettingsStore
+import com.lion.filebeam.ui.AnimatedBackdrop
 import kotlinx.coroutines.delay
 
 @Composable
@@ -104,8 +105,10 @@ fun ReceiverScreen(onBack: () -> Unit) {
         }
     }
 
+    AnimatedBackdrop {
     if (isTv) {
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = {
@@ -227,6 +230,7 @@ fun ReceiverScreen(onBack: () -> Unit) {
         }
     } else {
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = {
@@ -402,6 +406,7 @@ fun ReceiverScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 

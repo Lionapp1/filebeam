@@ -17,9 +17,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import com.lion.filebeam.update.InstallPermissionRequiredException
 import com.lion.filebeam.update.ReleaseInfo
 import com.lion.filebeam.update.UpdateManager
+import com.lion.filebeam.ui.AnimatedBackdrop
 import kotlinx.coroutines.launch
 
 @Composable
@@ -59,7 +61,9 @@ fun UpdateScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { checkUpdates() }
 
+    AnimatedBackdrop {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -164,3 +168,4 @@ fun UpdateScreen(onBack: () -> Unit) {
         }
     }
 }
+    }

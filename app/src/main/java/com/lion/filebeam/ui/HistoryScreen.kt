@@ -25,9 +25,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lion.filebeam.TransferHistory
+import com.lion.filebeam.ui.AnimatedBackdrop
 import com.lion.filebeam.TransferHistoryEntry
 import java.text.DateFormat
 import java.util.Date
@@ -51,7 +53,9 @@ fun HistoryScreen(onBack: () -> Unit) {
         message = "${target.size} kayıt silindi."
     }
 
+    AnimatedBackdrop {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -137,6 +141,7 @@ fun HistoryScreen(onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Vazgeç") } },
         )
+    }
     }
 }
 

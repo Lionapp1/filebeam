@@ -45,6 +45,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.lion.filebeam.Discovery
 import com.lion.filebeam.SettingsStore
+import com.lion.filebeam.ui.AnimatedBackdrop
 import com.lion.filebeam.mirror.ScreenMirrorReceiver
 import com.lion.filebeam.mirror.ScreenMirrorService
 import kotlinx.coroutines.Job
@@ -223,7 +224,9 @@ fun ScreenMirrorScreen(onBack: () -> Unit) {
             }
         }
     } else {
+        AnimatedBackdrop {
         Scaffold(
+            containerColor = Color.Transparent,
             topBar = {
                 TopAppBar(
                     title = {
@@ -337,3 +340,4 @@ fun ScreenMirrorScreen(onBack: () -> Unit) {
         }
     }
 }
+    }
