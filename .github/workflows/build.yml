@@ -2,6 +2,8 @@ name: Build & Sign APK
 
 on:
   push:
+    # Every branch is built for verification, but only main and version tags
+    # may publish a release: a feature branch must never become "latest".
     branches: [ main, 'feature/**' ]
     tags: [ 'v*' ]
   pull_request:
@@ -153,7 +155,7 @@ jobs:
           retention-days: 30
 
       - name: Determine whether this build is the newest release
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.signing.outputs.available == 'true'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.signing.outputs.available == 'true'
         id: latest
         env:
           GH_TOKEN: ${{ github.token }}
@@ -174,7 +176,7 @@ jobs:
           echo "Current version code: $current_code; latest published version code: $latest_code"
 
       - name: Publish versioned APK to GitHub Release
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.signing.outputs.available == 'true'
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) && steps.signing.outputs.available == 'true'
         uses: softprops/action-gh-release@v2
         with:
           # Branch builds publish a new stable semver tag; /releases/latest can then find it.
