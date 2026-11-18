@@ -21,8 +21,14 @@ import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Tv
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material3.*
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +39,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.sp
 import com.lion.filebeam.ui.ReceiverScreen
 import com.lion.filebeam.ui.SenderScreen
@@ -153,7 +160,21 @@ fun HomeScreen(onSend: () -> Unit, onReceive: () -> Unit, onMirror: () -> Unit, 
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                         ) {
+                            val pulse = rememberInfiniteTransition(label = "update-pulse")
+                            val scale by pulse.animateFloat(
+                                initialValue = 1f,
+                                targetValue = 1.12f,
+                                animationSpec = infiniteRepeatable(animation = tween(900), repeatMode = RepeatMode.Reverse),
+                                label = "update-scale",
+                            )
                             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Filled.SystemUpdate,
+                                    contentDescription = "Güncelleme",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(26.dp).scale(scale),
+                                )
+                                Spacer(Modifier.width(12.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text("Yeni FileBeam sürümü hazır", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
                                     Text("Sürüm $version · Ayrıntıları görüntüle", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.bodySmall)
@@ -229,6 +250,11 @@ fun ModeCard(
     isTv: Boolean = false,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val iconScale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (focused) 1.12f else 1f,
+        animationSpec = androidx.compose.animation.core.tween(180),
+        label = "mode-icon-scale",
+    )
     ElevatedCard(
         onClick = onClick,
         modifier = modifier
@@ -252,7 +278,7 @@ fun ModeCard(
                 Modifier.fillMaxSize().padding(22.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
             ) {
-                Surface(shape = RoundedCornerShape(15.dp), color = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(56.dp)) {
+                Surface(shape = RoundedCornerShape(15.dp), color = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(56.dp).scale(iconScale)) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(icon, null, tint = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(28.dp))
                     }
@@ -268,7 +294,7 @@ fun ModeCard(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Surface(shape = RoundedCornerShape(14.dp), color = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(48.dp)) {
+                Surface(shape = RoundedCornerShape(14.dp), color = if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(48.dp).scale(iconScale)) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(icon, null, tint = if (focused) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(24.dp))
                     }
