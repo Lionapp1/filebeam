@@ -64,6 +64,7 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             var themeMode by remember { mutableStateOf(SettingsStore.themeMode(context)) }
             var mirrorProfile by remember { mutableStateOf(SettingsStore.mirrorProfile(context)) }
+    var dynamicColor by remember { mutableStateOf(SettingsStore.dynamicColor(context)) }
             val darkTheme = when (themeMode) { "dark" -> true; "light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
             FileBeamTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 var mode by remember { mutableStateOf("home") }
