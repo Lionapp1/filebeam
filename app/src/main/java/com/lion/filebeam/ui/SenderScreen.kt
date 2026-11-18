@@ -35,6 +35,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -44,6 +45,7 @@ import com.journeyapps.barcodescanner.ScanOptions
 import com.lion.filebeam.Discovery
 import com.lion.filebeam.TransferClient
 import com.lion.filebeam.SettingsStore
+import com.lion.filebeam.ui.AnimatedBackdrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -253,7 +255,9 @@ fun SenderScreen(onBack: () -> Unit) {
         }
     }
 
+    AnimatedBackdrop {
     Scaffold(
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -473,6 +477,7 @@ fun SenderScreen(onBack: () -> Unit) {
             if (doneMsg != null) item { StatusMessage(doneMsg!!, false) }
             if (error != null) item { StatusMessage(error!!, true) }
         }
+    }
     }
 }
 
