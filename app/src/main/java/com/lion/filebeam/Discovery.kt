@@ -62,18 +62,22 @@ object Discovery {
         DatagramSocket().use { socket ->
             socket.broadcast = true
             val name = (Build.MODEL ?: "Android TV").replace("|", " ").take(80)
-            val ip = localIp()
-            val data = "FILEBEAM2|$name|$ip|$port".toByteArray(Charsets.UTF_8)
-            val destinations = activeIpv4().mapNotNull { (interfaceName, address) ->
-                runCatching {
-                    NetworkInterface.getByName(interfaceName)?.interfaceAddresses
-                        ?.firstOrNull { it.address == address }?.broadcast
-                }.getOrNull()
-            }.distinct().ifEmpty { listOf(InetAddress.getByName("255.255.255.255")) }
 
             while (isActive) {
-                destinations.forEach { destination ->
-                    runCatching { socket.send(DatagramPacket(data, data.size, destination, UDP_PORT)) }
+                // Re-read the address every cycle: a TV or phone that joined the
+                // Wi-Fi after this screen opened must advertise the real IP.
+                val ip = localIp()
+                if (ip.isNotBlank()) {
+                    val data = "FILEBEAM2|$name|$ip|$port".toByteArray(Charsets.UTF_8)
+                    val destinations = activeIpv4().mapNotNull { (interfaceName, address) ->
+                        runCatching {
+                            NetworkInterface.getByName(interfaceName)?.interfaceAddresses
+                                ?.firstOrNull { it.address == address }?.broadcast
+                        }.getOrNull()
+                    }.distinct().ifEmpty { listOf(InetAddress.getByName("255.255.255.255")) }
+                    destinations.forEach { destination ->
+                        runCatching { socket.send(DatagramPacket(data, data.size, destination, UDP_PORT)) }
+                    }
                 }
                 delay(2000)
             }

@@ -36,17 +36,20 @@ import com.lion.filebeam.Discovery
 import com.lion.filebeam.TransferClient
 import com.lion.filebeam.TransferServer
 import com.lion.filebeam.SettingsStore
+import kotlinx.coroutines.delay
 
 @Composable
 fun ReceiverScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val isTv = remember { context.packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }
     val pin = remember { SettingsStore.transferPin(context) }
-    val ip = remember { Discovery.localIp() }
+    var ip by remember { mutableStateOf(Discovery.localIp()) }
     var port by remember { mutableIntStateOf(0) }
+    var retry by remember { mutableIntStateOf(0) }
     var error by remember { mutableStateOf<String?>(null) }
     val log = remember { mutableStateListOf<String>() }
     var incoming by remember { mutableStateOf<TransferClient.Progress?>(null) }
+    var currentName by remember { mutableStateOf<String?>(null) }
     var serverRef by remember { mutableStateOf<TransferServer?>(null) }
     val activity = context as? Activity
 
@@ -57,25 +60,48 @@ fun ReceiverScreen(onBack: () -> Unit) {
             serverRef?.stop()
         }
     }
+    // A TV that boots straight into the app, or a phone that just joined the
+    // network, may not have a Wi-Fi address yet when the screen opens.
     LaunchedEffect(Unit) {
-        val server = TransferServer(
-            context, pin,
-            onFileStart = { name, size ->
-                incoming = TransferClient.Progress(name, 0, size, 0)
-                log.add(0, "↓  " + name)
-            },
-            onProgress = { _, bytes, total, speed ->
-                incoming = TransferClient.Progress("Aktarım sürüyor", bytes, total, speed)
-            },
-            onFileDone = { name ->
-                incoming = null
-                log.add(0, "✓  " + name + " alındı")
-            },
-            onError = { e -> error = e },
-        )
-        port = server.start()
-        serverRef = server
-        Discovery.broadcastLoop(port)
+        while (ip.isBlank()) {
+            delay(1500)
+            ip = Discovery.localIp()
+        }
+    }
+    LaunchedEffect(retry) {
+        if (port > 0) return@LaunchedEffect
+        error = null
+        try {
+            val server = TransferServer(
+                context, pin,
+                onFileStart = { name, size ->
+                    currentName = name
+                    incoming = TransferClient.Progress(name, 0, size, 0)
+                    log.add(0, "↓  " + name)
+                },
+                onProgress = { _, bytes, total, speed ->
+                    incoming = TransferClient.Progress(currentName ?: "Aktarım", bytes, total, speed)
+                },
+                onFileDone = { name ->
+                    incoming = null
+                    currentName = null
+                    log.add(0, "✓  " + name + " alındı")
+                },
+                onError = { e -> error = e },
+            )
+            port = server.start()
+            serverRef = server
+            Discovery.broadcastLoop(port)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Port 47813 can still be held by a closing transfer, so tell the
+            // user instead of crashing the screen.
+            port = 0
+            error = "Aktarım servisi başlatılamadı: " +
+                (e.message ?: e.javaClass.simpleName) +
+                ". Birkaç saniye sonra tekrar dene."
+        }
     }
 
     if (isTv) {
@@ -115,11 +141,21 @@ fun ReceiverScreen(onBack: () -> Unit) {
                                 modifier = Modifier.size(260.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).padding(8.dp),
                             )
                         } else {
-                            Box(Modifier.size(260.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                            Column(
+                                Modifier.size(260.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                CircularProgressIndicator()
+                                if (ip.isBlank()) {
+                                    Spacer(Modifier.height(14.dp))
+                                    Text("Wi-Fi bağlantısı bekleniyor…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
                         }
                         Spacer(Modifier.height(14.dp))
                         Text("QR kodu okut", fontWeight = FontWeight.Bold, fontSize = 21.sp)
-                        Text(ip + ":" + port, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (ip.isBlank()) "Wi-Fi'ye bağlan" else ip + ":" + port, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 Column(
@@ -158,7 +194,16 @@ fun ReceiverScreen(onBack: () -> Unit) {
                         }
                     }
                     if (error != null) {
-                        Text("⚠  " + error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        Column(Modifier.fillMaxWidth()) {
+                            Text(
+                                "⚠  " + error,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            if (port == 0) {
+                                TextButton(onClick = { retry++ }) { Text("Aktarımı tekrar başlat") }
+                            }
+                        }
                     }
                     Card(modifier = Modifier.weight(1f).fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
                         Column(Modifier.fillMaxSize().padding(18.dp)) {
@@ -249,13 +294,26 @@ fun ReceiverScreen(onBack: () -> Unit) {
                                         .padding(7.dp),
                                 )
                             } else {
-                                Box(Modifier.size(if (isTv) 310.dp else 190.dp), contentAlignment = Alignment.Center) {
+                                Column(
+                                    Modifier.size(if (isTv) 310.dp else 190.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                ) {
                                     CircularProgressIndicator()
+                                    if (ip.isBlank()) {
+                                        Spacer(Modifier.height(12.dp))
+                                        Text(
+                                            "Wi-Fi bağlantısı bekleniyor…",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = if (isTv) 16.sp else 12.sp,
+                                            textAlign = TextAlign.Center,
+                                        )
+                                    }
                                 }
                             }
                             Spacer(Modifier.height(12.dp))
                             Text("Bağlanmak için QR kodu okut", fontWeight = FontWeight.SemiBold, fontSize = if (isTv) 19.sp else 14.sp)
-                            Text(ip + ":" + port, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (ip.isBlank()) "Wi-Fi'ye bağlan" else ip + ":" + port, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -306,7 +364,12 @@ fun ReceiverScreen(onBack: () -> Unit) {
                             shape = RoundedCornerShape(14.dp),
                             color = MaterialTheme.colorScheme.errorContainer,
                         ) {
-                            Text("⚠  " + error, modifier = Modifier.padding(14.dp), color = MaterialTheme.colorScheme.onErrorContainer)
+                            Column(Modifier.padding(14.dp)) {
+                                Text("⚠  " + error, color = MaterialTheme.colorScheme.onErrorContainer)
+                                if (port == 0) {
+                                    TextButton(onClick = { retry++ }) { Text("Aktarımı tekrar başlat") }
+                                }
+                            }
                         }
                     }
                 }
