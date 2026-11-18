@@ -152,7 +152,7 @@ fun UpdateScreen(onBack: () -> Unit) {
                         HorizontalDivider()
                         Text("Sürüm notları", fontWeight = FontWeight.Bold)
                         Text(latest.notes, style = MaterialTheme.typography.bodyMedium)
-                        Text("İndirme yalnızca resmi Lionapp1/haberak-s GitHub Releases kaynağından yapılır.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text("İndirme yalnızca resmi Lionapp1/filebeam GitHub Releases kaynağından yapılır.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }

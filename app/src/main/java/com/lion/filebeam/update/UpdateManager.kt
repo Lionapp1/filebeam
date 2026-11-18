@@ -28,7 +28,7 @@ data class ReleaseInfo(
 )
 
 object UpdateManager {
-    private const val RELEASE_API = "https://api.github.com/repos/Lionapp1/haberak-s/releases/latest"
+    private const val RELEASE_API = "https://api.github.com/repos/Lionapp1/filebeam/releases/latest"
     private const val CONNECT_TIMEOUT = 15000
     private const val READ_TIMEOUT = 30000
 
