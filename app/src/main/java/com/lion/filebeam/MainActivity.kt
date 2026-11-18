@@ -84,6 +84,7 @@ fun HomeScreen(onSend: () -> Unit, onReceive: () -> Unit, onMirror: () -> Unit, 
     val context = LocalContext.current
     var updateVersion by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
+        if (!UpdateManager.selfUpdateSupported(context)) return@LaunchedEffect
         try { updateVersion = UpdateManager.check(context)?.version } catch (_: Exception) { /* Keep the home screen available when offline. */ }
     }
     val isTv = remember {

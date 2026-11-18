@@ -35,6 +35,13 @@ object UpdateManager {
     fun currentVersion(context: Context): String =
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
 
+    /**
+     * Debug builds get the ".debug" application id and a different signing key,
+     * so Android can never install a release APK over them. Offering the update
+     * there would only end in a failed installation.
+     */
+    fun selfUpdateSupported(context: Context): Boolean = !context.packageName.endsWith(".debug")
+
     suspend fun check(context: Context): ReleaseInfo? = withContext(Dispatchers.IO) {
         val connection = (URL(RELEASE_API).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"

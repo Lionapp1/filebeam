@@ -33,9 +33,14 @@ fun UpdateScreen(onBack: () -> Unit) {
     var status by remember { mutableStateOf("Güncellemeler kontrol edilmeye hazır.") }
     var error by remember { mutableStateOf<String?>(null) }
     val current = remember { UpdateManager.currentVersion(context) }
+    val selfUpdate = remember { UpdateManager.selfUpdateSupported(context) }
 
     fun checkUpdates() {
         if (checking || downloading) return
+        if (!selfUpdate) {
+            status = "Bu bir hata ayıklama (debug) derlemesi. Uygulama içi güncelleme yalnızca imzalı release sürümünde çalışır."
+            return
+        }
         checking = true
         error = null
         status = "GitHub Releases kontrol ediliyor…"
