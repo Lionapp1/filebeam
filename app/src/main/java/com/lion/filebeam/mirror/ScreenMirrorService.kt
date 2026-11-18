@@ -25,6 +25,8 @@ import java.io.DataOutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.ByteBuffer
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class ScreenMirrorService : Service() {
@@ -35,6 +37,9 @@ class ScreenMirrorService : Service() {
     @Volatile private var running = false
     @Volatile private var socket: Socket? = null
     @Volatile private var audioRecord: AudioRecord? = null
+    @Volatile private var outputStream: DataOutputStream? = null
+    @Volatile private var writerThread: Thread? = null
+    private val sendQueue = LinkedBlockingQueue<Any>(90)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -82,9 +87,42 @@ class ScreenMirrorService : Service() {
         client.connect(InetSocketAddress(host, MIRROR_PORT), 15000)
         client.soTimeout = 0
         val out = DataOutputStream(BufferedOutputStream(client.getOutputStream(), 64 * 1024))
+        outputStream = out
         out.writeUTF(pin)
         out.flush()
         publishStatus("TV bağlantısı kuruldu · görüntü hazırlanıyor")
+
+        // Dedicated writer thread: the encoder never blocks on socket I/O, which
+        // prevents dropped frames and stutter when the network or TV is slow.
+        writerThread = thread(name = "FileBeam-mirror-writer") {
+            val localOut = out
+            while (running || sendQueue.isNotEmpty()) {
+                val item = try { sendQueue.poll(100, TimeUnit.MILLISECONDS) } catch (_: InterruptedException) { null }
+                    ?: continue
+                try {
+                    synchronized(localOut) {
+                        when (item) {
+                            is QueuedVideo -> {
+                                localOut.writeInt(PACKET_VIDEO)
+                                localOut.writeInt(item.bytes.size)
+                                localOut.writeInt(item.flags)
+                                localOut.writeLong(item.pts)
+                                localOut.write(item.bytes)
+                                localOut.flush()
+                            }
+                            is QueuedAudio -> {
+                                localOut.writeInt(PACKET_AUDIO)
+                                localOut.writeInt(item.count)
+                                localOut.write(item.bytes, 0, item.count)
+                                localOut.flush()
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    running = false
+                }
+            }
+        }
 
         val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         projection = manager.getMediaProjection(resultCode, data)
@@ -95,12 +133,11 @@ class ScreenMirrorService : Service() {
                 stopSelf()
             }
         }
-        projectionCallback?.let { callback -> projection?.registerCallback(callback, android.os.Handler(mainLooper)) }
+        projection?.registerCallback(projectionCallback!!, android.os.Handler(mainLooper))
 
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
         (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
-        // Fixed 16:9 landscape output for TV panels.
         val (width, height, requestedFps, bitrate) = when (profile) {
             "economy" -> listOf(1280, 720, 30, 2_500_000)
             "smooth" -> listOf(1280, 720, 60, 4_500_000)
@@ -191,20 +228,21 @@ class ScreenMirrorService : Service() {
                             buffer.position(info.offset)
                             buffer.limit(info.offset + info.size)
                             buffer.get(bytes)
-                            synchronized(out) {
-                                out.writeInt(PACKET_VIDEO)
-                                out.writeInt(bytes.size)
-                                out.writeInt(info.flags)
-                                out.writeLong(info.presentationTimeUs)
-                                out.write(bytes)
-                                out.flush()
-                            }
+                            enqueueVideo(QueuedVideo(bytes, info.flags, info.presentationTimeUs))
                         }
                     } finally {
                         activeCodec.releaseOutputBuffer(index, false)
                     }
                 }
             }
+        }
+    }
+
+    private fun enqueueVideo(pkt: QueuedVideo) {
+        if (!sendQueue.offer(pkt)) {
+            // Drop the oldest queued video frame to make room (keep audio).
+            sendQueue.poll()
+            sendQueue.offer(pkt)
         }
     }
 
@@ -230,13 +268,20 @@ class ScreenMirrorService : Service() {
                 val pcm = ByteArray(maxOf(minBuffer, 8192))
                 while (running && audioRecord === record) {
                     val count = record.read(pcm, 0, pcm.size)
-                    if (count > 0) synchronized(out) { out.writeInt(PACKET_AUDIO); out.writeInt(count); out.write(pcm, 0, count); out.flush() }
-                    else if (count < 0) break
+                    if (count > 0) {
+                        val copy = ByteArray(count)
+                        System.arraycopy(pcm, 0, copy, 0, count)
+                        if (!sendQueue.offer(QueuedAudio(copy, count))) {
+                            sendQueue.poll()
+                            sendQueue.offer(QueuedAudio(copy, count))
+                        }
+                    } else if (count < 0) break
                 }
             }
             true
         } catch (_: Exception) { runCatching { audioRecord?.release() }; audioRecord = null; false }
     }
+
     private fun ByteBuffer.copyBytes(): ByteArray {
         val copy = duplicate()
         val bytes = ByteArray(copy.remaining())
@@ -267,6 +312,9 @@ class ScreenMirrorService : Service() {
         runCatching { projection?.stop() }
         projectionCallback = null
         projection = null
+        writerThread?.interrupt()
+        writerThread = null
+        sendQueue.clear()
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
@@ -288,6 +336,9 @@ class ScreenMirrorService : Service() {
             .setOngoing(running)
             .build()
     }
+
+    private data class QueuedVideo(val bytes: ByteArray, val flags: Int, val pts: Long)
+    private data class QueuedAudio(val bytes: ByteArray, val count: Int)
 
     companion object {
         const val MIRROR_PORT = 47814
