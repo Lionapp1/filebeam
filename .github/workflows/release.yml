@@ -84,6 +84,8 @@ jobs:
 
       - name: Build and verify signed release APK
         if: steps.signing.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -91,7 +93,19 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
             VERSION="${VERSION%%-*}"
           else
-            VERSION="2.0.${GITHUB_RUN_NUMBER}"
+            # The release workflow has its own run counter, which resets to 1 and
+            # would produce versions older than the existing v2.0.171 line. Derive
+            # the next patch number from the currently published release instead so
+            # every main push strictly increases the version.
+            latest_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+            latest_patch=171
+            if [[ "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              candidate="${latest_tag##*.}"
+              if [[ "$candidate" =~ ^[0-9]+$ ]] && (( candidate > latest_patch )); then
+                latest_patch="$candidate"
+              fi
+            fi
+            VERSION="2.0.$((latest_patch + 1))"
           fi
           IFS=. read -r MAJOR MINOR PATCH <<< "$VERSION"
           MAJOR="${MAJOR:-0}"; MINOR="${MINOR:-0}"; PATCH="${PATCH:-0}"
