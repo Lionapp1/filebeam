@@ -36,6 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -172,8 +174,9 @@ fun HomeScreen(onSend: () -> Unit, onReceive: () -> Unit, onMirror: () -> Unit, 
                     }
                     Spacer(Modifier.height(if (isTv) 28.dp else 22.dp))
                     updateVersion?.let { version ->
+                        val haptic2 = LocalHapticFeedback.current
                         Card(
-                            onClick = onUpdates,
+                            onClick = { haptic2.performHapticFeedback(HapticFeedbackType.LongPress); onUpdates() },
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
                         ) {
@@ -273,8 +276,9 @@ fun ModeCard(
         animationSpec = androidx.compose.animation.core.tween(180),
         label = "mode-icon-scale",
     )
+    val haptic = LocalHapticFeedback.current
     ElevatedCard(
-        onClick = onClick,
+        onClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onClick() },
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = if (isTv) 190.dp else 104.dp)
