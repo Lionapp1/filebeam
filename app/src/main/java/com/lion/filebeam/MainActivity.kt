@@ -65,7 +65,17 @@ class MainActivity : ComponentActivity() {
             FileBeamTheme(darkTheme = darkTheme) {
                 var mode by remember { mutableStateOf("home") }
                 BackHandler(enabled = mode != "home") { mode = "home" }
-                when (mode) {
+                androidx.compose.animation.AnimatedContent(
+                    targetState = mode,
+                    transitionSpec = {
+                        (androidx.compose.animation.fadeIn(animationSpec = androidx.compose.animation.core.tween(220)) +
+                            androidx.compose.animation.slideInHorizontally(animationSpec = androidx.compose.animation.core.tween(220)) { it / 6 }) togetherWith
+                            (androidx.compose.animation.fadeOut(animationSpec = androidx.compose.animation.core.tween(180)) +
+                                androidx.compose.animation.slideOutHorizontally(animationSpec = androidx.compose.animation.core.tween(180)) { -it / 6 })
+                    },
+                    label = "screen-transition",
+                ) { targetMode ->
+                    when (targetMode) {
                     "send" -> SenderScreen(onBack = { mode = "home" })
                     "receive" -> ReceiverScreen(onBack = { mode = "home" })
                     "mirror" -> ScreenMirrorScreen(onBack = { mode = "home" })
@@ -80,6 +90,7 @@ class MainActivity : ComponentActivity() {
                         onHistory = { mode = "history" },
                         onUpdates = { mode = "updates" },
                     )
+                }
                 }
             }
         }
