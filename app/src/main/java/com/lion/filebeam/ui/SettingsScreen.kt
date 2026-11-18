@@ -39,8 +39,10 @@ import com.lion.filebeam.ui.AnimatedBackdrop
 fun SettingsScreen(
     themeMode: String,
     mirrorProfile: String,
+    dynamicColor: Boolean,
     onThemeChange: (String) -> Unit,
     onMirrorProfileChange: (String) -> Unit,
+    onDynamicColorChange: (Boolean) -> Unit,
     onUpdates: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -106,6 +108,22 @@ fun SettingsScreen(
                             RadioButton(selected = themeMode == value, onClick = { onThemeChange(value) })
                         }
                     }
+                }
+
+                SettingsSection(
+                    icon = { Icon(Icons.Filled.Palette, null, tint = MaterialTheme.colorScheme.primary) },
+                    title = "Dinamik renk (Material You)",
+                    description = "Android 12+ cihazlarda duvar kağıdından türetilen renkleri kullan.",
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Dinamik renkleri kullan", modifier = Modifier.weight(1f), fontSize = 15.sp)
+                        Switch(checked = dynamicColor, onCheckedChange = onDynamicColorChange)
+                    }
+                    Text(
+                        "Kapalıyken FileBeam'in kendi marka paleti kullanılır. Açık temada açık, koyu temada koyu renkler otomatik seçilir.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
 
                 SettingsSection(

@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
             var themeMode by remember { mutableStateOf(SettingsStore.themeMode(context)) }
             var mirrorProfile by remember { mutableStateOf(SettingsStore.mirrorProfile(context)) }
             val darkTheme = when (themeMode) { "dark" -> true; "light" -> false; else -> androidx.compose.foundation.isSystemInDarkTheme() }
-            FileBeamTheme(darkTheme = darkTheme) {
+            FileBeamTheme(darkTheme = darkTheme, dynamicColor = dynamicColor) {
                 var mode by remember { mutableStateOf("home") }
                 BackHandler(enabled = mode != "home") { mode = "home" }
                 androidx.compose.animation.AnimatedContent(
@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
                     "send" -> SenderScreen(onBack = { mode = "home" })
                     "receive" -> ReceiverScreen(onBack = { mode = "home" })
                     "mirror" -> ScreenMirrorScreen(onBack = { mode = "home" })
-                    "settings" -> SettingsScreen(themeMode, mirrorProfile, { v -> themeMode = v; SettingsStore.setThemeMode(context, v) }, { v -> mirrorProfile = v; SettingsStore.setMirrorProfile(context, v) }, { mode = "updates" }, { mode = "home" })
+                    "settings" -> SettingsScreen(themeMode, mirrorProfile, dynamicColor, { v -> themeMode = v; SettingsStore.setThemeMode(context, v) }, { v -> mirrorProfile = v; SettingsStore.setMirrorProfile(context, v) }, { v -> dynamicColor = v; SettingsStore.setDynamicColor(context, v) }, { mode = "updates" }, { mode = "home" })
                     "history" -> HistoryScreen(onBack = { mode = "home" })
                     "updates" -> UpdateScreen(onBack = { mode = "settings" })
                     else -> HomeScreen(

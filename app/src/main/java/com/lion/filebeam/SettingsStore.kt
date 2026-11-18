@@ -6,6 +6,7 @@ object SettingsStore {
     private const val PREFS = "filebeam_preferences"
     private const val THEME = "theme_mode"
     private const val MIRROR_PROFILE = "mirror_profile"
+    private const val DYNAMIC_COLOR = "dynamic_color"
     private const val TRANSFER_PIN = "transfer_pin"
     private const val PAIRED_TRANSFER_IP = "paired_transfer_ip"
     private const val PAIRED_TRANSFER_PIN = "paired_transfer_pin"
@@ -78,5 +79,12 @@ object SettingsStore {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return prefs.getString(PAIRED_MIRROR_PIN, null)
             ?.takeIf { prefs.getString(PAIRED_MIRROR_IP, null) == ip }
+    }
+
+    fun dynamicColor(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(DYNAMIC_COLOR, false)
+
+    fun setDynamicColor(context: Context, value: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(DYNAMIC_COLOR, value).apply()
     }
 }
