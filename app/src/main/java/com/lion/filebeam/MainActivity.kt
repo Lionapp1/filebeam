@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.unit.sp
+import com.lion.filebeam.ui.AnimatedBackdrop
 import com.lion.filebeam.ui.ReceiverScreen
 import com.lion.filebeam.ui.SenderScreen
 import com.lion.filebeam.ui.ScreenMirrorScreen
